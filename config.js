@@ -13,10 +13,10 @@ custom_config = custom_config || { supported_signs: [] }
 let default_config = {
   record_failed_info: false,
   not_lingering_float_window: true,
-  github_url: 'https://github.com/TonyJiangWJ/Unify-Sign',
+  github_url: 'https://github.com/dotama/Unify-Sign',
   // github release url 用于检测更新状态
-  github_latest_url: 'https://api.github.com/repos/TonyJiangWJ/Unify-Sign/releases/latest',
-  history_tag_url: 'https://api.github.com/repos/TonyJiangWJ/Unify-Sign/tags',
+  github_latest_url: 'https://api.github.com/repos/dotama/Unify-Sign/releases/latest',
+  history_tag_url: 'https://api.github.com/repos/dotama/Unify-Sign/tags',
   killAppWithGesture: true,
   thread_name_prefix: 'unify_sign_',
   notificationId: 113,
@@ -218,4 +218,5 @@ config.exportIfNeeded(module, null)
 
 // 扩展配置
 extendSignConfig(default_config, config, CONFIG_STORAGE_NAME)
-config.code_version = 'v2.4.2.2'
+config.code_version = 'v2.5.1'
+config.code_version_desc = '蚂蚁积分界面适配：优先执行底部滑动浏览任务，支持+3/+5积分任务自动领取，跳过邀请好友类任务，任务列表展开状态自动保持，换一换最多10次'

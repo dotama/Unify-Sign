@@ -1,4 +1,3 @@
-
 let { config } = require('../config.js')(runtime, this)
 let singletonRequire = require('../lib/SingletonRequirer.js')(runtime, this)
 
@@ -13,7 +12,7 @@ let warningFloaty = singletonRequire('WarningFloaty')
 let NotificationHelper = singletonRequire('Notification')
 
 let BaseSignRunner = require('./BaseSignRunner.js')
-function BeanCollector () {
+function BeanCollector() {
   let _this = this
   this.initStorages = function () {
     this.dailyTaskStorage = this.createStoreOperator('jingdong_daily_task', { executed: false })
@@ -76,10 +75,10 @@ function BeanCollector () {
   /**
    * 通过我的进入签到页面
    */
-  function openSignPage (retry) {
+  function openSignPage(retry) {
     if (openHome()) {
       _this.pushLog('查找 秒杀 入口')
-      let plantEntry = widgetUtils.widgetGetOne('秒杀',)
+      let plantEntry = widgetUtils.widgetGetOne('秒杀')
       if (_this.displayButtonAndClick(plantEntry, '秒杀')) {
         sleep(1000)
         return true
@@ -92,7 +91,7 @@ function BeanCollector () {
     return false
   }
 
-  function openMine (retry) {
+  function openMine(retry) {
     if (commonFunctions.myCurrentPackage() != _package_name) {
       app.launchPackage(_package_name)
       _this.pushLog('打开京东APP')
@@ -110,21 +109,27 @@ function BeanCollector () {
     return false
   }
 
-  function openHome () {
+  function openHome() {
     if (commonFunctions.myCurrentPackage() != _package_name) {
       app.launchPackage(_package_name)
       _this.pushLog('打开京东APP')
       sleep(2000)
     }
-    if ((descContains('首页').boundsInside(0, config.device_height * 0.8, config.device_width, config.device_height).findOne(1000))) {
+    if (
+      descContains('首页')
+        .boundsInside(0, config.device_height * 0.8, config.device_width, config.device_height)
+        .findOne(1000)
+    ) {
       _this.pushLog('点击 首页 控件')
-      let myWidget = descContains('首页').boundsInside(0, config.device_height * 0.8, config.device_width, config.device_height).findOne(1000)
+      let myWidget = descContains('首页')
+        .boundsInside(0, config.device_height * 0.8, config.device_width, config.device_height)
+        .findOne(1000)
       return _this.displayButtonAndClick(myWidget, '首页')
     }
     return false
   }
 
-  function openPlant () {
+  function openPlant() {
     if (openHome()) {
       sleep(2000)
       let plantEntry = widgetUtils.widgetGetOne('种豆得豆')
@@ -142,7 +147,7 @@ function BeanCollector () {
     return false
   }
 
-  function verifySignOpened (timeout) {
+  function verifySignOpened(timeout) {
     let verifyWidget = widgetUtils.widgetCheck('京东秒杀', timeout || 2000)
     if (verifyWidget) {
       logUtils.debugInfo(['找到京东秒杀控件，签到页面已打开 等待3秒 以确保页面加载完成'])
@@ -153,7 +158,7 @@ function BeanCollector () {
   }
   /**
    * 执行签到
-   * @returns 
+   * @returns
    */
   this.execDailySign = function () {
     if (this.isSubTaskExecuted(SIGN)) {
@@ -163,7 +168,7 @@ function BeanCollector () {
     this.pushLog('执行每日签到')
 
     if (!openSignPage()) {
-      if (widgetUtils.widgetCheck("今日已签到", 2000)) {
+      if (widgetUtils.widgetCheck('今日已签到', 2000)) {
         this.pushLog('今日已完成签到')
         this.setSubTaskExecuted(SIGN)
         return true
@@ -225,7 +230,7 @@ function BeanCollector () {
 
   /**
    * 幸运奖励 稳定10豆子
-   * @returns 
+   * @returns
    */
   this.execLuckySign = function () {
     if (this.isSubTaskExecuted(LUCKY_SIGN)) {
@@ -262,14 +267,14 @@ function BeanCollector () {
         this.pushLog('检查是否存在 已领取')
         if (this.captureAndCheckByOcr('已领取', '已领取', region)) {
           this.pushLog('当前已领取')
-          this.luckySignFailedCounter.updateStorageValue(storeValue => storeValue.count = 0)
+          this.luckySignFailedCounter.updateStorageValue(storeValue => (storeValue.count = 0))
           this.setSubTaskExecuted(LUCKY_SIGN)
         } else {
           this.pushWarningLog('无法找到点击领取，暂时无法确定是否完成了签到')
-          this.luckySignFailedCounter.updateStorageValue(storeValue => storeValue.count += 1)
+          this.luckySignFailedCounter.updateStorageValue(storeValue => (storeValue.count += 1))
           if (this.luckySignFailedCounter.getValue().count >= 3) {
             this.pushWarningLog('累计失败3次，跳过幸运签到，可能已经不存在该任务了')
-            this.luckySignFailedCounter.updateStorageValue(storeValue => storeValue.count = 0)
+            this.luckySignFailedCounter.updateStorageValue(storeValue => (storeValue.count = 0))
             this.setSubTaskExecuted(LUCKY_SIGN)
             NotificationHelper.createNotification('幸运签到失败，可能没有该任务', '累计失败3次，跳过幸运签到，请手动检查', 'jingdong:luckysign')
           }
@@ -298,7 +303,7 @@ function BeanCollector () {
   /**
    * 执行种豆得豆
    *
-   * @returns 
+   * @returns
    */
   this.execPlantBean = function (doubleCheck) {
     if (this.isSubTaskExecuted(BEAN)) {
@@ -315,7 +320,6 @@ function BeanCollector () {
     } else {
       this.pushLog('打开种豆得豆失败')
     }
-
   }
 
   // 领取每周京豆奖励
@@ -324,12 +328,10 @@ function BeanCollector () {
     this.displayButtonAndClick(reward, '收下京豆')
   }
 
-
   this.doDailyTasks = function (reopen) {
-
     let skipTask = []
 
-    function getNextExecuteTask (container) {
+    function getNextExecuteTask(container) {
       let offset = 0
       try {
         let taskEntry = container.child(offset + 2)
@@ -474,26 +476,30 @@ function BeanCollector () {
     countDown.await(5, java.util.concurrent.TimeUnit.SECONDS)
     if (collectableBalls && collectableBalls.length > 0) {
       let hasCollectable = false
-      balls = collectableBalls.map(target => {
-        let childCount = target.childCount()
-        let title = '', canCollect = false
-        if (childCount == 3) {
-          title = target.child(2).text()
-          rewardText = target.child(1).text()
-          canCollect = /\d+/.test(rewardText) && title.indexOf('明日领取') < 0
-        } else if (childCount == 2) {
-          rewardText = target.child(0).text()
-          title = target.child(1).text()
-          canCollect = /\+\d+/.test(rewardText) && rewardText != '+0' && title.indexOf('明日领取') < 0
-        }
-        return { title, canCollect, target: target }
-      }).filter(target => target.canCollect).forEach(target => {
-        hasCollectable = true
-        this.displayButtonAndClick(target.target, '可收集' + target.title)
-        let checkDialog = widgetUtils.widgetGetOne('开心收下', 1000)
-        this.displayButtonAndClick(checkDialog, '开心收下')
-        sleep(500)
-      })
+      balls = collectableBalls
+        .map(target => {
+          let childCount = target.childCount()
+          let title = '',
+            canCollect = false
+          if (childCount == 3) {
+            title = target.child(2).text()
+            rewardText = target.child(1).text()
+            canCollect = /\d+/.test(rewardText) && title.indexOf('明日领取') < 0
+          } else if (childCount == 2) {
+            rewardText = target.child(0).text()
+            title = target.child(1).text()
+            canCollect = /\+\d+/.test(rewardText) && rewardText != '+0' && title.indexOf('明日领取') < 0
+          }
+          return { title, canCollect, target: target }
+        })
+        .filter(target => target.canCollect)
+        .forEach(target => {
+          hasCollectable = true
+          this.displayButtonAndClick(target.target, '可收集' + target.title)
+          let checkDialog = widgetUtils.widgetGetOne('开心收下', 1000)
+          this.displayButtonAndClick(checkDialog, '开心收下')
+          sleep(500)
+        })
       if (hasCollectable) {
         return this.doCollectBalls()
       }
@@ -509,10 +515,13 @@ function BeanCollector () {
       let countdown = collectCountdown.content
       let result = /(\d+):(\d+):(\d+)/.exec(countdown)
       let remain = parseInt(result[1]) * 60 + parseInt(result[2]) + 1
-      FloatyInstance.setFloatyInfo({
-        x: collectCountdown.target.bounds().centerX(),
-        y: collectCountdown.target.bounds().centerY()
-      }, '剩余时间：' + remain + '分')
+      FloatyInstance.setFloatyInfo(
+        {
+          x: collectCountdown.target.bounds().centerX(),
+          y: collectCountdown.target.bounds().centerY(),
+        },
+        '剩余时间：' + remain + '分'
+      )
       this.pushLog('检测到种豆得豆倒计时：' + remain + '分')
       this.pushLog('控件信息：' + countdown)
       sleep(1000)
@@ -567,13 +576,17 @@ function BeanCollector () {
 
   /**
    * @deprecated 该死的京东 又改了界面
-   * @param {*} btns 
-   * @returns 
+   * @param {*} btns
+   * @returns
    */
   this.findFirstAndDoTask = function (btns) {
-    let taskInfo = btns.map(btn => { return { title: btn.parent().child(0).text(), btn: btn } }).find(task => {
-      return _this.executedTaskList.indexOf(task.title) == -1
-    })
+    let taskInfo = btns
+      .map(btn => {
+        return { title: btn.parent().child(0).text(), btn: btn }
+      })
+      .find(task => {
+        return _this.executedTaskList.indexOf(task.title) == -1
+      })
     if (!taskInfo) {
       this.pushLog('当前任务都已经执行过')
       return false
@@ -608,7 +621,7 @@ function BeanCollector () {
     sleep(1000)
     let limit = 5
     if (!widgetUtils.widgetCheck('.*做任务 得更多收获值.*', 2000)) {
-      this.pushWarningLog("未能打开抽屉")
+      this.pushWarningLog('未能打开抽屉')
     }
     let success = false
     while (!(success = widgetUtils.widgetCheck('.*做任务 得更多收获值.*', 2000)) && limit-- > 0) {
@@ -618,7 +631,11 @@ function BeanCollector () {
         continue
       }
       // 回到了首页，直接校验并进入
-      if ((descContains('首页').boundsInside(0, config.device_height * 0.8, config.device_width, config.device_height).findOne(1000))) {
+      if (
+        descContains('首页')
+          .boundsInside(0, config.device_height * 0.8, config.device_width, config.device_height)
+          .findOne(1000)
+      ) {
         this.pushLog('当前在首页')
         openPlant()
         this.openTaskDrawer()
@@ -651,7 +668,7 @@ function BeanCollector () {
     return widgetUtils.widgetCheck('.*做任务 得更多收获值.*', 2000)
   }
 
-  function doBrowseShop (limit) {
+  function doBrowseShop(limit) {
     limit = limit || 0
     if (limit >= 6) {
       this.pushLog('关注店铺个数过多 返回上级 检查是否已完成')
@@ -676,13 +693,13 @@ function BeanCollector () {
     }
   }
 
-  function checkFollowChannel () {
+  function checkFollowChannel() {
     widgetUtils.widgetWaiting('进入并关注')
     doFollowChannel.apply(this, [0])
     return this.backToPlant()
   }
 
-  function doFollowChannel (limit) {
+  function doFollowChannel(limit) {
     limit = limit || 0
     if (limit > 3) {
       this.pushLog('关注频道过多 直接返回 重新校验是否有关注频道入口')
@@ -755,7 +772,6 @@ function BeanCollector () {
     }
   }
 
-
   this.checkDoubleCheckDone = function () {
     sleep(1000)
     this.pushLog('查找是否存在 点击领奖|查看奖励')
@@ -804,8 +820,7 @@ function BeanCollector () {
     commonFunctions.minimize(_package_name)
   }
 
-
-  function DrugSigner () {
+  function DrugSigner() {
     let parentThis = _this
     this.openDrugSignPage = function () {
       _this.pushLog('准备打开京东买药页面，先最小化回到桌面')
@@ -817,19 +832,21 @@ function BeanCollector () {
       sleep(1000)
       let entrySuceess = false
       parentThis.pushLog('查找是否存在关闭弹窗按钮')
-      let btn = selector().filter(node => {
-        let bd = node.bounds();
-        return bd.centerX() == config.device_width / 2 && bd.width() / bd.height() == 1 && bd.width() < 110 && bd.centerY() > config.device_height / 2 && bd.centerY() < config.device_height * 0.8
-      }).findOne(2000)
+      let btn = selector()
+        .filter(node => {
+          let bd = node.bounds()
+          return bd.centerX() == config.device_width / 2 && bd.width() / bd.height() == 1 && bd.width() < 110 && bd.centerY() > config.device_height / 2 && bd.centerY() < config.device_height * 0.8
+        })
+        .findOne(2000)
       if (btn) {
         parentThis.pushLog('找到关闭弹窗按钮, 点击关闭')
         automator.clickCenter(btn)
       }
-      if (parentThis.captureAndCheckByOcr('签到奖励|马上签到', '签到奖励', null, null, true)) {
+      if (parentThis.captureAndCheckByOcr('签到领京豆|签到奖励|马上签到', '签到奖励', null, null, true)) {
         parentThis.pushLog('点击了签到奖励')
         sleep(1000)
         // 可能存在弹窗，二次校验是否存在入口
-        if (parentThis.captureAndCheckByOcr('签到奖励|马上签到', '签到奖励', null, null, true)) {
+        if (parentThis.captureAndCheckByOcr('签到领京豆|签到奖励|马上签到', '签到奖励', null, null, true)) {
           entrySuceess = true
         }
       } else {
@@ -884,8 +901,7 @@ function BeanCollector () {
       // TODO 完成每日任务
     }
 
-
-    function openDrugSignPage () {
+    function openDrugSignPage() {
       // let url = 'openapp.jdmobile://virtual?params=' + encodeURIComponent(buildParams())
       // console.log('url:', url)
       // app.startActivity({
@@ -907,33 +923,23 @@ function BeanCollector () {
         _this.pushLog('打开失败')
       }
       return false
-
     }
 
-    function buildUrlParams () {
-      let params = [
-        'utm_user=plusmember',
-        'gx=RnAoFNvDvpxGHheQeSnihXDdWirjP_lfCFEYixY',
-        'gxd=RnAoy2FdYDaPyM5EqI1xXgjvwH1850Q',
-        'ad_od=share',
-        'utm_source=androidapp',
-        'utm_medium=appshare',
-        'utm_term=Wxfriends_shareid86482f3fa7963bbd174053140530292934_none_none'
-      ]
+    function buildUrlParams() {
+      let params = ['utm_user=plusmember', 'gx=RnAoFNvDvpxGHheQeSnihXDdWirjP_lfCFEYixY', 'gxd=RnAoy2FdYDaPyM5EqI1xXgjvwH1850Q', 'ad_od=share', 'utm_source=androidapp', 'utm_medium=appshare', 'utm_term=Wxfriends_shareid86482f3fa7963bbd174053140530292934_none_none']
       console.log('url params:', JSON.stringify(params))
       return params.join('&')
     }
 
-
-    function buildParams () {
+    function buildParams() {
       let params = {
-        "category": "jump",
-        "des": "m",
-        "sourceValue": "babel-act",
-        "sourceType": "babel",
-        "url": "https://jdhm.jd.com/jdhhome/?" + buildUrlParams(),
-        "M_sourceFrom": "H5",
-        "msf_type": "click",
+        category: 'jump',
+        des: 'm',
+        sourceValue: 'babel-act',
+        sourceType: 'babel',
+        url: 'https://jdhm.jd.com/jdhhome/?' + buildUrlParams(),
+        M_sourceFrom: 'H5',
+        msf_type: 'click',
       }
 
       return JSON.stringify(params)
@@ -1007,7 +1013,8 @@ function BeanCollector () {
       if (openMine()) {
         sleep(1000)
         let beanCenter = widgetUtils.widgetGetOne('京豆可抵')
-        let entered = false, limit = 3
+        let entered = false,
+          limit = 3
         do {
           if (parentThis.displayButtonAndClick(beanCenter, '京豆可抵')) {
             entered = widgetUtils.widgetWaiting('.*(再领.*京豆).*')
@@ -1015,7 +1022,7 @@ function BeanCollector () {
           if (!entered) {
             beanCenter = widgetUtils.widgetGetOne('京豆可抵')
           }
-        } while(!entered && --limit > 0)
+        } while (!entered && --limit > 0)
         if (!entered) {
           parentThis.pushErrorLog('进入每日任务界面失败')
         } else {
@@ -1098,9 +1105,7 @@ function BeanCollector () {
       return parentThis.displayButtonAndClick(target)
     }
 
-    this.checkTaskDone = function () {
-
-    }
+    this.checkTaskDone = function () {}
   }
 }
 BeanCollector.prototype = Object.create(BaseSignRunner.prototype)

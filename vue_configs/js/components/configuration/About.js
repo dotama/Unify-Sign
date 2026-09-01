@@ -73,8 +73,8 @@ const About = {
       <van-cell :title="getLabelByConfigKey('version')" :value="version"/>
       <van-cell title="检测更新" value="点击更新" @click="checkForUpdate"/>
       <van-cell title="更新历史" value="点击查看" @click="showReleases"/>
-      <van-cell title="作者" value="TonyJiangWJ"/>
-      <van-cell title="Email" value="TonyJiangWJ@gmail.com"/>
+      <van-cell title="作者" value="tanggq"/>
+      <van-cell title="Email" value="tgq9527@qq.com"/>
       <van-cell v-if="qq_group" :title="getLabelByConfigKey('qq_group')" :value="qq_group" @click="openQQGroup"/>
       <van-cell value-class="long-value" v-if="forum_url" title="论坛" :value="forum_url" @click="openForum"/>
       <van-cell value-class="long-value" v-if="githubShort" title="Github" :value="githubShort" @click="openGithubUrl"/>

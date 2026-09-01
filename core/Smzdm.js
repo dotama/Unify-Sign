@@ -58,7 +58,9 @@ function SignRunner () {
         logUtils.warnInfo('未找到签到入口，可能已完成签到')
         this.displayButtonAndClick(signEntry)
       }
-      if (widgetUtils.widgetCheck('已连续签到', 3000)) {
+      // 判断是否已签到：签到中心页状态格显示"已签到"，顶部显示"您已连签"
+      // 保留 if 判断以避免界面未加载/未进入签到中心时误标记，文字按当前界面适配
+      if (widgetUtils.widgetCheck('已签到|您已连签', 3000)) {
         this.setExecuted()
       }
     }
