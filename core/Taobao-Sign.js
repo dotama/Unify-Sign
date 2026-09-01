@@ -128,6 +128,19 @@ function SignRunner () {
     }
     sleep(1000)
     this.processGastureIfNeed()
+    // 优先控件查找「立即签到」按钮（界面文字识别比OCR更可靠，同屏「赚元宝」即为控件匹配）
+    let signBtn = widgetUtils.widgetGetOne('立即签到', 3000)
+    if (signBtn) {
+      this.pushLog('找到立即签到按钮，点击签到')
+      this.displayButtonAndClick(signBtn, '点击立即签到')
+      sleep(1500)
+      this.signed = true
+      commonFunctions.setTaobaoSigned()
+      FloatyInstance.setFloatyText('已完成立即签到')
+      return
+    }
+    this.pushLog('控件未找到立即签到，回退到OCR识别')
+
     let screen = commonFunctions.captureScreen()
     if (screen && localOcrUtil.enabled) {
       let find = localOcrUtil.recognizeWithBounds(screen, null, '.*立即签到.*')
