@@ -37,7 +37,7 @@ function SignRunner () {
       FloatyInstance.setFloatyText('没有打开确认弹框')
     }
     logFloaty.pushLog('检查是否有关闭按钮')
-    let closeButton = widgetUtils.widgetGetOne('关闭按钮', 3000)
+    let closeButton = widgetUtils.widgetGetOne('关闭按钮|关闭|^×$|^X$', 3000)
     if (closeButton) {
       this.displayButtonAndClick(closeButton, '找到了关闭按钮')
     } else {
@@ -47,6 +47,27 @@ function SignRunner () {
     this.processGastureIfNeed()
   }
 
+  this.closeFirstOpenDialog = function () {
+    // 首次打开红包签到页会弹出「现金立即到账」领取弹窗，遮挡「立即签到」按钮，需先领取或关闭
+    let dialog = widgetUtils.widgetGetOne('现金立即到账', 1500)
+    if (!dialog) {
+      return
+    }
+    this.pushLog('检测到首次打开现金弹窗，尝试领取或关闭')
+    // 优先点击「领」按钮领取现金奖励
+    let claim = widgetUtils.widgetGetOne('^\u9886$', 1000)
+    if (claim) {
+      this.displayButtonAndClick(claim, '点击领')
+      sleep(1500)
+      return
+    }
+    // 无「领」按钮则点击「×」或「关闭」关闭弹窗
+    let close = widgetUtils.widgetGetOne('^\u00d7$|^X$|^关闭$|关闭', 1000)
+    if (close) {
+      this.displayButtonAndClick(close, '点击关闭弹窗')
+      sleep(1000)
+    }
+  }
   this.openSignPage = function () {
     if (new Date().getTime() - this.startTime > 1000 * 10 * 60) {
       this.pushErrorLog('运行超时，需要退出当前签到')
@@ -74,6 +95,7 @@ function SignRunner () {
       widgetUtils.widgetWaiting('赚元宝', null, 2000)
       sleep(1000)
       this.processGastureIfNeed()
+      this.closeFirstOpenDialog()
       this.checkDailySign()
       this.checkCountdownBtn(true)
       this.browseAds()
@@ -301,6 +323,11 @@ function SignRunner () {
       commonFunctions.minimize()
       this.launchTaobao()
       if (this.openSignPage()) {
+        this.closeFirstOpenDialog()
+        // 重开后重新签到，避免首次弹窗遮挡导致未执行签到
+        if (!this.signed) {
+          this.checkDailySign()
+        }
         this.browseAds(memo)
       } else {
         this.pushErrorLog('重新打开签到界面失败，退出执行')
