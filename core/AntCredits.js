@@ -195,7 +195,7 @@ function CreditRunner () {
 
     // 2. 点击"再领积分"按钮 -> 进入游戏中心 -> 等待访问成功弹框 -> 关闭返回（适配"再领1积分"/"再领50积分"等变体）
     FloatyInstance.setFloatyText('检测再领积分按钮')
-    let extraBtn = widgetUtils.widgetGetOne('再领1积分', 2000)
+    let extraBtn = widgetUtils.widgetGetOne('再领[1-9]积分', 2000)
     if (extraBtn) {
       // 检测“再领1积分”红包倒计时（如 17:44 / 01:23:45），倒计时未结束点击无效，跳过本次点击并安排倒计时结束后再执行
       let countdownWidget = widgetUtils.widgetGetOne('\\d+:\\d{2}(:\\d{2})?', 1000, true, true)
@@ -311,192 +311,162 @@ function CreditRunner () {
     FloatyInstance.setFloatyText('任务列表已展开')
   }
 
+  /**
+   * 确保已进入“赚更多积分”任务列表页（特征：存在“换一换”或“去完成”）。
+   * 未进入则直接点击主页上的“赚更多积分”入口进入（不在主页滑动），点击后校验是否真的进入，最多重试3次。
+   */
+  this.ensureTaskListOpened = function (tryTime) {
+    tryTime = tryTime || 1
+    let inList = widgetUtils.widgetCheck('换一换', 800) ||
+      (widgetUtils.widgetGetAll('\\s*去完成') || []).length > 0
+    if (inList) return true
+    // “赚更多积分”入口就在积分主页上，直接点击进入整批列表页，不在主页上下滑动
+    let moreBtn = widgetUtils.widgetGetOne('赚更多积分', 1500)
+    if (moreBtn) {
+      this.pushLog('点击赚更多积分进入任务列表（第' + tryTime + '次）')
+      this.displayButtonAndClick(moreBtn, '点击赚更多积分')
+      sleep(2200)
+      if (widgetUtils.widgetCheck('换一换', 1500) ||
+        (widgetUtils.widgetGetAll('\\s*去完成') || []).length > 0) {
+        this.pushLog('已进入赚更多积分任务列表')
+        return true
+      }
+    } else {
+      this.pushLog('当前屏未找到赚更多积分入口')
+    }
+    if (tryTime < 3) {
+      this.ensureCurrentInTaskPage()
+      sleep(800)
+      return this.ensureTaskListOpened(tryTime + 1)
+    }
+    this.pushErrorLog('多次尝试仍未进入赚更多积分任务列表')
+    return false
+  }
+
   this.doTask = function (limit) {
     if (limit <= 0) {
+      this.pushLog('换一换次数已用完，赚更多积分任务结束')
       return
     }
     this.ensureCurrentInTaskPage()
-    // 滑动到页面顶部，确保任务列表区域可见（底部滑动浏览后页面可能停留在底部）
-    automator.gestureDown(config.device_height * 0.2, config.device_height * 0.7)
-    sleep(500)
-    // 确保任务列表已展开（任务执行完返回后页面会回到顶部，任务列表被收起，导致找不到去完成/换一换按钮）
-    this.expandTaskListIfNeeded()
-    this.pushLog('等待页面完全刷新 等待1秒')
-    let wait = 1
-    while (wait > 0) {
-      this.replaceLastLog('等待页面完全刷新 等待' + wait-- + '秒')
-      sleep(1000)
-    }
-    FloatyInstance.setFloatyText('查找任务')
-    sleep(1000)
-    let toFinishList = widgetUtils.widgetGetAll('\\s*去完成')
-    if (!toFinishList || toFinishList.length <= 0) {
-      // 双重保险：可能任务列表未展开，先展开再重试一次
-      this.pushLog('未找到去完成按钮，尝试展开任务列表后重试')
-      this.expandTaskListIfNeeded()
-      sleep(1000)
-      toFinishList = widgetUtils.widgetGetAll('\\s*去完成')
-    }
-    if (!toFinishList || toFinishList.length <= 0) {
-      this.pushLog('无可完成任务')
-      signFailedUtil.recordFailedWidgets(this.taskCode, '每日任务')
-      // 展开后再找一次换一换
-      this.expandTaskListIfNeeded()
-      sleep(500)
-      // 浏览任务已完成（显示"已完成浏览任务"），终止换一换避免空转
-      if (widgetUtils.widgetCheck('.*已完成浏览任务.*', 1000)) {
-        this.pushLog('检测到已完成浏览任务，终止任务列表刷新')
-        return
-      }
-      let changeTask = widgetUtils.widgetGetOne('换一换', 1500)
-      if (changeTask) {
-        this.pushLog('没找到可执行的任务，换一换：' + limit)
-        changeTask.click()
-        sleep(2000)
-        return this.doTask(limit - 1)
-      }
+    // 确保已进入赚更多积分任务列表页；进不去就结束，避免在错误页面空扫后误判“全部结束”
+    if (!this.ensureTaskListOpened()) {
+      this.pushLog('未能进入任务列表，结束本次赚更多积分处理')
       return
     }
-    let anyFailed = false
-    let toFinishBtn = toFinishList.map(v => {
+    this.pushLog('等待页面刷新 1秒')
+    sleep(1000)
+    FloatyInstance.setFloatyText('查找任务')
+
+    // 递归收集任务行内所有 TextView 文本，提取标题、积分值与整行文本
+    function collectTaskInfo (widget, depth, result) {
+      if (!widget || depth > 8) return
       try {
-
-        // 健壮的任务信息解析：递归收集容器中所有TextView文本，提取标题和积分值
-        function collectTaskInfo (widget, depth, result) {
-          if (!widget || depth > 8) return
-          try {
-            if (widget.className() == 'android.widget.TextView') {
-              let t = widget.text()
-              if (t && t.toString().trim().length > 0) {
-                let txt = t.toString()
-                result.texts.push(txt)
-                // 提取积分值：+3积分、+300积分、+75积分
-                let pm = txt.match(/\+(\d+)积分/)
-                if (pm && !result.points) {
-                  result.points = parseInt(pm[1])
-                }
-                // 第一个非按钮文本作为标题
-                if (!result.title && txt != '去完成' && txt != '领取' && txt.indexOf('积分') < 0) {
-                  result.title = txt
-                  result.boundsInfo = widget.bounds()
-                }
-              }
+        if (widget.className() == 'android.widget.TextView') {
+          let t = widget.text()
+          if (t && t.toString().trim().length > 0) {
+            let txt = t.toString()
+            result.texts.push(txt)
+            let pm = txt.match(/\+(\d+)积分/)
+            if (pm && !result.points) {
+              result.points = parseInt(pm[1])
             }
-          } catch (e) {}
-          let count = 0
-          try { count = widget.childCount() } catch (e) { return }
-          for (let i = 0; i < count; i++) {
-            let child = widget.child(i)
-            if (child) collectTaskInfo(child, depth + 1, result)
-          }
-        }
-        function getTitle (btnWidget) {
-          // 从按钮向上尝试多个父层级（1-6层），在每个层级的容器中递归收集任务信息
-          for (let level = 1; level <= 6; level++) {
-            let container = btnWidget
-            let valid = true
-            for (let l = 0; l < level; l++) {
-              try {
-                container = container.parent()
-                if (!container) { valid = false; break }
-              } catch (e) { valid = false; break }
+            if (!result.title && txt != '去完成' && txt != '领取' && txt.indexOf('积分') < 0) {
+              result.title = txt
+              result.boundsInfo = widget.bounds()
             }
-            if (!valid || !container) continue
-            try {
-              let info = { texts: [], title: null, points: null, boundsInfo: null }
-              collectTaskInfo(container, 0, info)
-              if (info.title) {
-                return { title: info.title, points: info.points, boundsInfo: info.boundsInfo }
-              }
-            } catch (e) {}
-          }
-          logUtils.warnInfo('无法读取当前任务标题，控件结构已变更，使用默认标题兜底')
-          return { title: '未知浏览任务', points: 3, boundsInfo: btnWidget.bounds() }
-        }
-        let boundsInfo = null, title = null, points = null
-        try {
-          let result = getTitle(v)
-          title = result.title
-          points = result.points
-          boundsInfo = result.boundsInfo
-        } catch (e) {
-          commonFunctions.printExceptionStack(e)
-          boundsInfo = v.bounds()
-          title = '未知浏览任务'
-          points = 5
-        }
-
-        // 只保留<=5积分的任务，超过5积分的任务（+300、+75等）需要真实消费/开通，无法通过脚本自动完成
-        if (points !== null && points > 5) {
-          logUtils.debugInfo(['跳过超过+5积分任务：标题={} 积分={}', title, points])
-          return false
-        }
-        // 跳过邀请好友类任务（无法通过脚本自动完成）
-        if (title && title.indexOf('邀请') > -1) {
-          logUtils.debugInfo(['跳过邀请好友任务：标题={}', title])
-          return false
-        }
-
-        if (title) {
-          return {
-            title: title,
-            points: points,
-            btn: v,
-            titleBounds: boundsInfo
           }
         }
-        return false
-      } catch (e) {
-        anyFailed = true
-        logUtils.errorInfo('读取控件信息失败 可能控件信息又变了' + e)
-        return false
+      } catch (e) {}
+      let count = 0
+      try { count = widget.childCount() } catch (e) { return }
+      for (let i = 0; i < count; i++) {
+        let child = widget.child(i)
+        if (child) collectTaskInfo(child, depth + 1, result)
       }
-    }).filter(v => !!v)
-    if (anyFailed) {
-      signFailedUtil.recordFailedWidgets(this.taskCode, '任务控件信息')
     }
-    // 提取当前可以执行的第一个任务
+    function getTitle (btnWidget) {
+      for (let level = 1; level <= 6; level++) {
+        let container = btnWidget
+        let valid = true
+        for (let l = 0; l < level; l++) {
+          try {
+            container = container.parent()
+            if (!container) { valid = false; break }
+          } catch (e) { valid = false; break }
+        }
+        if (!valid || !container) continue
+        try {
+          let info = { texts: [], title: null, points: null, boundsInfo: null }
+          collectTaskInfo(container, 0, info)
+          if (info.title) {
+            return { title: info.title, points: info.points, boundsInfo: info.boundsInfo, allText: info.texts.join(' ') }
+          }
+        } catch (e) {}
+      }
+      logUtils.warnInfo('无法读取当前任务标题，控件结构已变更，使用默认标题兜底')
+      return { title: '未知浏览任务', points: 3, boundsInfo: btnWidget.bounds(), allText: '' }
+    }
+    // 扫描当前可见的全部“去完成”，解析并过滤：只保留<=5积分、非邀请、非游戏闯关类
+    let parseVisibleTasks = () => {
+      let list = widgetUtils.widgetGetAll('\\s*去完成')
+      if (!list) return []
+      let anyFailed = false
+      let arr = list.map(v => {
+        try {
+          let r = getTitle(v)
+          // >5积分需真实消费/开通，跳过
+          if (r.points !== null && r.points > 5) return false
+          // 邀请类跳过
+          if (r.title && r.title.indexOf('邀请') > -1) return false
+          // 游戏/闯关类无法靠简单浏览完成，跳过（整行文字含“游戏阵地/玩一玩/通过N关”等）
+          if (/玩一玩|游戏|通过\s*\d+\s*关|过关|传奇|闯关/.test(r.allText)) return false
+          if (r.title) {
+            return { title: r.title, points: r.points, btn: v, titleBounds: r.boundsInfo }
+          }
+          return false
+        } catch (err) {
+          anyFailed = true
+          logUtils.errorInfo('读取控件信息失败 可能控件信息又变了' + err)
+          return false
+        }
+      }).filter(x => !!x)
+      if (anyFailed) signFailedUtil.recordFailedWidgets(this.taskCode, '任务控件信息')
+      return arr
+    }
+
+    let toFinishBtn = parseVisibleTasks()
     let task = findFirstExecutableTask.call(this, toFinishBtn)
-    // TODO 确保按钮在可见范围
     if (task && task.executable) {
       this.pushLog('执行任务：' + task.name)
       task.execute.apply(this)
       this.pushLog('当前任务执行完毕，尝试下一个任务')
-      // 确保返回到任务列表页，避免停留在任务详情页导致后续任务无法获取
       this.ensureCurrentInTaskPage()
       sleep(1000)
+      // 执行后原地重新扫描，不滚动，避免把未做任务滑走
       return this.doTask(limit)
-    } else {
-      // 检查当前页面是否还有未跳过的≤5积分任务
-      let unskippedTasks = toFinishBtn.filter(info => skipTaskList.indexOf(info.title) < 0)
-      if (unskippedTasks.length > 0) {
-        // 还有未跳过的任务但类型不可执行，跳过它们后重试（不换一换，避免当前页面还有可做任务时被刷新掉）
-        this.pushLog('当前页面还有' + unskippedTasks.length + '个≤5积分任务但类型不可执行，跳过后续任务列表')
-        unskippedTasks.forEach(info => {
-          if (info.title && info.title != '未知浏览任务') {
-            skipTaskList.push(info.title)
-          }
-        })
-        sleep(500)
-        return this.doTask(limit)
-      }
-      // 所有≤5积分任务都已跳过或执行完毕，换一换刷新
-      this.pushLog('当前页面所有≤5积分任务已处理完毕，换一换刷新')
-      sleep(1000)
-      // 浏览任务已完成（显示"已完成浏览任务"），终止换一换避免空转
-      if (widgetUtils.widgetCheck('.*已完成浏览任务.*', 1000)) {
-        this.pushLog('检测到已完成浏览任务，终止任务列表刷新')
-        return
-      }
-      let changeTask = widgetUtils.widgetGetOne('换一换', 1000)
-      if (changeTask) {
-        this.pushLog('点击换一换刷新任务列表，剩余次数：' + limit)
-        changeTask.click()
-        sleep(2000)
-        return this.doTask(limit - 1)
-      }
     }
 
+    // 当前可见候选都无法执行：未识别类型的先记入跳过列表，原地再扫（不滚动、不消耗换一换次数）
+    let unskipped = toFinishBtn.filter(info => skipTaskList.indexOf(info.title) < 0)
+    if (unskipped.length > 0) {
+      this.pushLog('当前屏有' + unskipped.length + '个候选但类型不可执行，标记跳过后继续')
+      unskipped.forEach(info => {
+        if (info.title && info.title != '未知浏览任务') skipTaskList.push(info.title)
+      })
+      sleep(500)
+      return this.doTask(limit)
+    }
+
+    // 当前这批已无可做任务（+3/+5 非邀请非游戏都做完或跳过）：直接点“换一换”刷新下一批；列表页本身不上下滚动
+    let changeTask = widgetUtils.widgetGetOne('换一换', 1500)
+    if (changeTask) {
+      this.pushLog('本批无可做任务，点击换一换刷新，剩余换一换次数：' + (limit - 1))
+      changeTask.click()
+      sleep(2000)
+      return this.doTask(limit - 1)
+    }
+    this.pushLog('已无“换一换”按钮，赚更多积分任务全部结束')
   }
   // 定义需要跳过的任务
   const skipTaskList = []
@@ -720,17 +690,11 @@ function CreditRunner () {
   }
 
   this.doBrowseTask = function () {
-    // 新界面：领取快捷积分（立即领 + 再领1积分）
+    // 领取快捷积分（立即领 + 再领个位数小额积分）
     this.collectQuickRewards()
-    // 点击"赚更多积分"展开任务列表（页面会自动上滑）
-    FloatyInstance.setFloatyText('点击赚更多积分展开任务列表')
-    let moreBtn = widgetUtils.widgetGetOne('赚更多积分', 2000)
-    if (moreBtn) {
-      this.displayButtonAndClick(moreBtn, '点击赚更多积分')
-      sleep(1500)
-    } else {
-      FloatyInstance.setFloatyText('未找到赚更多积分按钮，任务列表可能已展开')
-    }
+    // 可靠进入“赚更多积分”任务列表页：点击入口并校验，找不到会下滑查找、自动重试
+    FloatyInstance.setFloatyText('进入赚更多积分任务列表')
+    this.ensureTaskListOpened()
   }
 
   /**
@@ -803,10 +767,10 @@ function CreditRunner () {
   }
 
   /**
-   * v2.5.0 执行流程：
-   * 1. 领取快捷积分（立即领 + 再领积分）+ 展开任务列表
-   * 2. 优先执行底部滑动浏览任务（固定存在，不受换一换影响）
-   * 3. 执行福利任务（只执行<=5积分任务，非<=5积分通过换一换刷新，最多10次）
+   * v2.5.1 执行流程（先赚更多积分任务，后滑动浏览）：
+   * 1. 领取快捷积分（立即领 + 再领N积分）+ 展开任务列表
+   * 2. 先执行赚更多积分福利任务（只做<=5积分、非邀请，逐个完成+换一换，最多10次，直到无可做任务）
+   * 3. 最后执行底部滑动浏览任务（一天一般2次，已完成自动跳过）
    */
   this.executeTasks = function () {
     if (!widgetUtils.widgetCheck(sign_page_widget, 8000)) {
@@ -818,19 +782,15 @@ function CreditRunner () {
       }
       sleep(1000)
     }
-    // 领取快捷积分（立即领 + 再领积分）+ 展开任务列表
+    // 1. 领取快捷积分（立即领 + 再领N积分）+ 点击赚更多积分展开任务列表
     this.doBrowseTask()
 
-    // 优先执行底部滑动浏览任务（固定存在，不受换一换影响）
-    this.doBottomBrowseTask()
-    // 底部滑动浏览后页面停留在底部，滑动回到任务列表区域
-    sleep(500)
-    automator.gestureDown(config.device_height * 0.2, config.device_height * 0.7)
-    sleep(1000)
-    this.expandTaskListIfNeeded()
-
-    // 执行福利任务（只执行<=5积分任务，非<=5积分通过换一换刷新，最多10次）
+    // 2. 先把赚更多积分里的福利任务做完：只做<=5积分且非邀请类，逐个点击、换一换刷新，
+    //    直到没有任何可完成的<=5积分（非邀请）任务为止（doTask 内部会自动回到任务列表并重新展开）
     this.doTask(10)
+
+    // 3. 赚更多积分任务全部处理完后，再判断并执行底部滑动浏览任务（已完成会自动跳过）
+    this.doBottomBrowseTask()
     automator.back()
   }
 
