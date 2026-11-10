@@ -28,11 +28,17 @@ function SignRunner () {
 
   // 启动淘宝后确认回到首页或签到页，否则多次back（淘宝可能停留在上次的商品详情页）
   this.backToTaobaoHome = function () {
-    for (let i = 0; i < 6; i++) {
-      // 首页有「红包签到」入口，签到页有「赚元宝/立即签到/点击领取」
-      let indicator = widgetUtils.widgetGetOne('红包签到|赚元宝|立即签到|点击领取|我的心愿', 1500)
-      if (indicator) {
-        this.pushLog('已在淘宝首页或签到页')
+    for (let i = 0; i < 3; i++) {
+      // 签到页特征：赚元宝/立即签到/点击领取/我的心愿
+      let inSignPage = widgetUtils.widgetCheck('赚元宝|立即签到|点击领取|我的心愿', 1000)
+      // 首页特征：顶部频道 tab（推荐/关注/闪购）或搜索按钮；首页 feed 首屏不一定有「红包签到」入口
+      let inHomePage = widgetUtils.widgetCheck('推荐|关注|闪购|搜索', 1000)
+      if (inSignPage) {
+        this.pushLog('已在淘宝签到页')
+        return true
+      }
+      if (inHomePage) {
+        this.pushLog('已在淘宝首页')
         return true
       }
       this.pushLog('不在淘宝首页/签到页，back返回（第' + (i + 1) + '次）')
@@ -86,6 +92,27 @@ function SignRunner () {
       sleep(1000)
     }
   }
+  /**
+   * 回到淘宝首页最顶端：金刚区入口（红包签到/领淘金币/芭芭农场）可见即视为在顶部；
+   * 首页停在 feed 中段时金刚区被滚走，需先上滑回顶，否则找不到「红包签到」入口。
+   */
+  this.scrollHomeToTop = function () {
+    if (widgetUtils.widgetCheck('红包签到|领淘金币|芭芭农场', 1000)) {
+      this.pushLog('首页已在最顶端，金刚区入口可见')
+      return
+    }
+    this.pushLog('首页不在顶端，上滑回到顶部')
+    for (let i = 0; i < 4; i++) {
+      automator.gestureUp(config.device_height * 0.3, config.device_height * 0.75, 300)
+      sleep(800)
+      if (widgetUtils.widgetCheck('红包签到|领淘金币|芭芭农场', 1000)) {
+        this.pushLog('已滚动回首页顶端')
+        return
+      }
+    }
+    this.pushLog('回顶后仍未看到金刚区入口')
+  }
+
   this.openSignPage = function () {
     if (new Date().getTime() - this.startTime > 1000 * 10 * 60) {
       this.pushErrorLog('运行超时，需要退出当前签到')
@@ -98,6 +125,7 @@ function SignRunner () {
       return true
     }
     this.processGastureIfNeed()
+    this.scrollHomeToTop()
     let signBtn = this.displayButtonAndClick(widgetUtils.widgetGetOne('红包签到'), '找到了签到按钮')
     if (!signBtn) {
       this.processGastureIfNeed()

@@ -218,5 +218,5 @@ config.exportIfNeeded(module, null)
 
 // 扩展配置
 extendSignConfig(default_config, config, CONFIG_STORAGE_NAME)
-config.code_version = 'v2.5.1'
-config.code_version_desc = '蚂蚁积分界面适配：优先执行底部滑动浏览任务，支持+3/+5积分任务自动领取，跳过邀请好友类任务，任务列表展开状态自动保持，换一换最多10次'
+config.code_version = 'v2.5.2.1'
+config.code_version_desc = '适配最新界面: 修复淘宝首页误返回/回顶端再找签到入口; 什么值得买适配签到领奖按钮; 蚂蚁积分赚更多积分遍历优化(列表内不滚动, 换一换最多10批, 过滤>5积分/邀请/游戏类); 淘宝倒计时按按钮读秒创建下次任务'

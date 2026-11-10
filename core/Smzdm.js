@@ -96,34 +96,45 @@ function SignRunner () {
       return true
     }
 
-    // 签到按钮在页面上部偏右（用户名右侧），优先按 id，其次按文案“签到”
+    // 签到按钮在页面上部偏右（用户名右侧）。新版文案为“签到领奖”，旧版可能是“签到/立即签到”
     FloatyInstance.setFloatyText('查找签到按钮')
-    let entry = widgetUtils.widgetGetById('com.smzdm.client.android:id/v_container_login_not_sign_animation', 1500)
-    if (!entry) {
-      entry = widgetUtils.widgetGetById('com.smzdm.client.android:id/v_login_sign.*', 1500)
+    let entry = null
+    // 1. 旧 id 优先，但必须校验控件文字含 签到/领奖/已签，避免旧 id 命中错误 View
+    let idCandidates = [
+      widgetUtils.widgetGetById('com.smzdm.client.android:id/v_container_login_not_sign_animation', 1200),
+      widgetUtils.widgetGetById('com.smzdm.client.android:id/v_login_sign.*', 1200)
+    ]
+    for (let k = 0; k < idCandidates.length; k++) {
+      let w = idCandidates[k]
+      if (!w) continue
+      let t = this.readWidgetText(w)
+      if (/签到|领奖|已签/.test(t)) { entry = w; break }
+      this.pushLog('id 候选文字不匹配，跳过：' + t)
     }
+    // 2. 文案全匹配：覆盖 签到领奖 / 签到领积分 / 签到 / 立即签到 / 去签到
     if (!entry) {
-      entry = widgetUtils.widgetGetOne('签到', 2000)
+      entry = widgetUtils.widgetGetOne('签到领奖|签到领.*|签到|立即签到|去签到|签个到', 2000)
     }
+    // 3. 兜底：遍历所有含 签到/领奖 的控件，排除日历/任务/成就等干扰项，并打印全部候选便于定位
     if (!entry) {
-      entry = widgetUtils.widgetGetOne('立即签到|去签到|签个到', 2000)
-    }
-    if (!entry) {
-      // 兜底：按钮文案可能带后缀（如“签到领积分”），在页面上部区域找包含“签到”的控件，排除日历/任务/成就等干扰项
-      let candidates = widgetUtils.widgetGetAll('.*签到.*')
+      let candidates = widgetUtils.widgetGetAll('.*签到.*|.*领奖.*')
       if (candidates && candidates.length > 0) {
         let excludes = ['日历', '任务', '成就', '补签', '规则', '明细', '奖励', '记录']
+        let diag = []
         for (let i = 0; i < candidates.length; i++) {
           let bd = candidates[i].bounds()
-          if (!bd || bd.top() > config.device_height * 0.6) continue
           let txt = this.readWidgetText(candidates[i])
+          let top = bd ? bd.top() : -1
+          diag.push(txt + '@top=' + top)
+          if (!bd || bd.top() > config.device_height * 0.85) continue
           let skipIt = false
           excludes.forEach(function (kw) { if (txt.indexOf(kw) > -1) skipIt = true })
           if (skipIt) continue
-          this.pushLog('兜底匹配到签到控件，文案：' + txt)
           entry = candidates[i]
+          this.pushLog('兜底匹配到签到控件，文案：' + txt)
           break
         }
+        this.pushLog('页面含签到/领奖的候选控件：' + diag.join(' | '))
       }
     }
     if (!entry) {
@@ -144,10 +155,7 @@ function SignRunner () {
     // 情况二：跳转到签到中心页（顶部“已连续签到 N天”），在页内找签到按钮点击
     if (widgetUtils.widgetCheck('已连续签到.*', 1500)) {
       this.pushLog('已进入签到中心页，查找页内签到按钮')
-      let signBtn = widgetUtils.widgetGetOne('签到', 2000)
-      if (!signBtn) {
-        signBtn = widgetUtils.widgetGetOne('立即签到|去签到|签到领.*', 1500)
-      }
+      let signBtn = widgetUtils.widgetGetOne('签到领奖|签到领.*|签到|立即签到|去签到', 2000)
       if (signBtn) {
         this.pushLog('点击签到中心页的签到按钮')
         this.displayButtonAndClick(signBtn, '点击签到', 2000)
