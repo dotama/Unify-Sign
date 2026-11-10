@@ -218,5 +218,6 @@ config.exportIfNeeded(module, null)
 
 // 扩展配置
 extendSignConfig(default_config, config, CONFIG_STORAGE_NAME)
-config.code_version = 'v2.5.2.1'
+// 版本号以 version.json 为准, 更新落地后由 UpdateChecker 自动回写; 此处不再硬编码
+config.code_version = config.code_version || ''
 config.code_version_desc = '适配最新界面: 修复淘宝首页误返回/回顶端再找签到入口; 什么值得买适配签到领奖按钮; 蚂蚁积分赚更多积分遍历优化(列表内不滚动, 换一换最多10批, 过滤>5积分/邀请/游戏类); 淘宝倒计时按按钮读秒创建下次任务'
